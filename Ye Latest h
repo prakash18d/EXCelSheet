@@ -1,0 +1,135 @@
+using DocumentFormat.OpenXml.Spreadsheet;
+using ExcelDataReader;
+using System.Data;
+using System.Data.OleDb;
+using System.Drawing;
+using Color = DocumentFormat.OpenXml.Spreadsheet.Color;
+
+namespace excel
+{
+    class Program
+    {
+        public static void Main(string[] args)
+        {
+
+            DataTable sheetExcelReport = datatable("C:\\Users\\prakashdubey1\\Downloads\\sheet.xlsx", "GCCS_Admin_ComponentConfig");
+
+            DataTable shsheetExcelCompareReportt = datatable("C:\\Users\\prakashdubey1\\Downloads\\sheet1.xlsx", "GCCS_Admin_ComponentConfig");
+            DataTable sheetnumber = datatable("C:\\Users\\Prakash Dubey\\Downloads\\tempExcel.xlsx", "PrakashDubey");
+
+            List<string> tempdata = sheetExcelReport.AsEnumerable().Select(s => s.Field<string>("F9")).ToList();
+            tempdata = tempdata.Where(d => d != null).Where(d => d != "").ToList();
+            //List<string> tempdatasheet = sheetnumber.AsEnumerable().Select(s => s.Field<string>("F9")).ToList();
+
+            //List<string> tempdata = sheetExcelReport.AsEnumerable().Select(s => s.Field<string>("Question Text")).ToList();
+            List<string> tempdata1 = shsheetExcelCompareReportt.AsEnumerable().Select(s => s.Field<string>("F9")).ToList();
+            List<string> tempdata2 = shsheetExcelCompareReportt.AsEnumerable().Select(s => s.Field<string>("F8")).ToList();
+
+
+            tempdata1 = tempdata1.Where(d => d != null).Where(d => d != "").ToList();
+            var diffs = (tempdata).Union(tempdata1).Except(tempdata.Intersect(tempdata1));
+           
+
+            File.WriteAllLines("C:\\Users\\prakashdubey1\\Downloads\\finalTest.csv", diffs);
+            #region Pushing Data to excel
+            //foreach (DataRow row in sheet1.Rows)
+            //{
+
+            //}
+            //DataTable sheet2 = datatable("C:\\Users\\deepakverma01\\Desktop\\Befor Change Questionaire Report CR.xlsx", "Sheet2");
+            DataTable table = new DataTable();
+            table.Columns.Add("ColumnName", typeof(string));
+            table.Columns.Add("Sheet1", typeof(string));
+            table.Columns.Add("Sheet2", typeof(string));
+            string test1 = null;
+            string test2 = null;
+            foreach (DataColumn column in sheetExcelReport.Columns)
+            {
+                string a = column.ColumnName;
+                foreach (DataColumn column1 in shsheetExcelCompareReportt.Columns)
+                {
+                    string b = column.ColumnName;
+                    if (a == b)
+                    {
+                        List<object> lst1 = (from d in sheetExcelReport.AsEnumerable() select d.Field<object>(a)).ToList();
+                        List<object> lst2 = (from d in shsheetExcelCompareReportt.AsEnumerable() select d.Field<object>(a)).ToList();
+                        for (int i = 0; i < lst1.Count; i++)
+                        {
+                            for (int j = i; j < lst2.Count; j++)
+                            {
+                                if ((i == j) && (!lst1.SequenceEqual(lst2)))
+                                {
+                                    if (Convert.ToString(lst1[i]) != Convert.ToString(lst2[j]))
+                                    {
+                                        test1 = Convert.ToString(lst1[i]);
+                                        test2 = Convert.ToString(lst2[j]);
+                                       
+                                        table.Rows.Add(a, test1, test2);
+                                    }
+
+
+                                }
+                            }
+                        }
+
+
+                    }
+
+                }
+            }
+
+            DataView dv = new DataView(table);
+            table = dv.ToTable(true);
+
+            var lines = new List<string>();
+
+            string[] columnNames = table.Columns.Cast<DataColumn>().
+                                              Select(column => column.ColumnName).
+                                              ToArray();
+
+            var header = string.Join(",", columnNames);
+            lines.Add(header);
+
+            var valueLines = table.AsEnumerable()
+                               .Select(row => string.Join(",", row.ItemArray));
+            lines.AddRange(valueLines);
+
+
+
+            File.WriteAllLines("C:\\Users\\prakashdubey1\\Downloads\\final.csv", lines);
+            Console.WriteLine("success");
+            Console.ReadKey();
+            #endregion
+
+        }
+        public static DataTable datatable(string path, string sheetName)
+        {
+            DataTable dt = new DataTable();
+            string connectionString = @"Provider=Microsoft.ACE.OLEDB.12.0;Data Source=" + path + ";" + "Extended Properties='Excel 12.0 Xml;HDR=YES;IMEX=1;MAXSCANROWS=0'";
+            using (OleDbConnection conn = new OleDbConnection(connectionString))
+            {
+                using (OleDbCommand comm = new OleDbCommand())
+                {
+                    comm.CommandText = "Select * from [" + sheetName + "$]";
+                    comm.Connection = conn;
+                    using (OleDbDataAdapter da = new OleDbDataAdapter())
+                    {
+                        da.SelectCommand = comm;
+
+                        try
+                        {
+                            da.Fill(dt);
+                        }
+                        catch
+                        {
+                            Console.WriteLine("hello Worls");
+                        }
+
+                        return dt;
+                    }
+                }
+            }
+        }
+
+    }
+}
